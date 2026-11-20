@@ -1,0 +1,19 @@
+{
+  "id": "glance-button",
+  "name": "Glance Button",
+  "description": "Adds an Open in Glance button to Reddit post action rows, immediately before the repost button. No modifier key.",
+  "author": "rteobaldo",
+  "version": "1.2.0",
+  "scripts": {
+    "glance-button.uc.js": {
+      "name": "Glance Button",
+      "description": "Registers the actor that adds the Reddit Glance button",
+      "include": ["chrome://browser/content/browser.xhtml*"]
+    }
+  },
+  "tags": ["zen", "glance", "reddit"],
+  "fork": ["zen"],
+  "createdAt": "2026-11-15",
+  "updatedAt": "2026-11-20",
+  "readme": "README.md"
+}
