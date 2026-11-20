@@ -1,16 +1,18 @@
 /**
  * Content side of the Reddit Glance button.
  *
- * Injects one button per post into the action row, immediately before the
- * repost button. Clicking it asks the parent actor to open the post
+ * Injects one button per post into the action row, immediately to the right
+ * of the vote pill. Clicking it asks the parent actor to open the post
  * permalink in Glance.
  *
- * Current Reddit renders row actions as open light-DOM `rpl-cab` buttons
- * identified by data-post-click-location ("repost-button", ...). The votes
- * themselves live in closed shadow roots, so the repost button — the first
- * open-DOM row anchor — is used instead. The button is cloned from the
- * repost button, so it inherits Reddit's current padding, radius, and hover
- * styling in both themes.
+ * Current Reddit renders the row inside nested shadow roots: the vote pill
+ * lives in a closed root on `rpl-action-bar` (unreachable from page JS),
+ * and the row proper is slotted into the bar's row region through the
+ * light-DOM `div[slot="overflow-menu-bar"]` on the post. The button is
+ * inserted as that div's first child, so it renders before the row — next
+ * to the vote pill — and is cloned from the repost button so it inherits
+ * Reddit's rpl-cab styling in both themes. Fallbacks for degraded SSR:
+ * the row host's "whitespace" slot, then before the repost button.
  */
 
 const EYE_SVG =
@@ -18,13 +20,48 @@ const EYE_SVG =
   'aria-hidden="true" style="flex:none;fill:currentColor">' +
   '<path fill-rule="evenodd" d="M8 2.9C4.4 2.9 1.6 5.3.7 8c.9 2.7 3.7 5.1 7.3 5.1s6.4-2.4 7.3-5.1C15.3 5.3 12.5 2.9 8 2.9zm0 8.2a3.1 3.1 0 1 1 0-6.2 3.1 3.1 0 0 1 0 6.2zm0-1.7a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8z"/></svg>';
 
-function findRowAnchor(post) {
-  return post.querySelector('button[data-post-click-location="repost-button"]');
+/**
+ * Find where the button goes, what to clone for styling, and which
+ * element must be its direct parent. A button found elsewhere in the post
+ * is a stale remnant of an earlier anchor and gets removed before
+ * re-injection.
+ *
+ * @returns {{before: Element, template: Element, scope: Element,
+ *            slot: string|null}|null}
+ */
+function findRowParts(post) {
+  const template = post.querySelector(
+    'button[data-post-click-location="repost-button"]'
+  );
+  if (!template) {
+    return null;
+  }
+  // The row renders inside this light-DOM div, slotted through the post's
+  // root into rpl-action-bar's row region, right of the vote pill.
+  const div = post.querySelector('div[slot="overflow-menu-bar"]');
+  const first = div?.firstElementChild;
+  if (div && first) {
+    // The row host is block-level; without this the pill renders on its
+    // own line above the row. One centered flex line lays them out flat.
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    return { before: first, template, scope: div, slot: null };
+  }
+  const host = post.querySelector("unpacking-overflow-menu");
+  const loader = host?.querySelector(":scope > faceplate-loader");
+  const before = loader || template;
+  const scope = host || before.parentElement || post;
+  // Inside the upgraded row host only slotted children render.
+  const slot = loader && host?.shadowRoot?.querySelector('slot[name="whitespace"]')
+    ? "whitespace"
+    : null;
+  return { before, template, scope, slot };
 }
 
 export class GlanceButtonChild extends JSWindowActorChild {
   #started = false;
   #scanTimer = 0;
+  #observedRoots = new WeakSet();
 
   handleEvent() {
     this.#start();
@@ -58,25 +95,66 @@ export class GlanceButtonChild extends JSWindowActorChild {
   }
 
   #scan(doc) {
+    const win = this.contentWindow;
     for (const post of doc.querySelectorAll("shreddit-post")) {
-      if (post.querySelector("[data-glance-button]")) {
+      const parts = findRowParts(post);
+      if (!parts) {
         continue;
       }
-      const anchor = findRowAnchor(post);
-      if (anchor) {
-        this.#inject(post, doc, anchor);
+      // Shadow-root re-renders (Lit hydration, state changes) don't
+      // propagate to the light-DOM observer; watch the roots that hold
+      // the row so a wiped button gets re-injected.
+      if (win && post.shadowRoot) {
+        this.#observeRoot(win, post.shadowRoot);
       }
+      if (win && parts.scope instanceof win.ShadowRoot) {
+        this.#observeRoot(win, parts.scope);
+      }
+      // Remove stale buttons from earlier anchors (before hydration
+      // finished, or from re-renders); they render 0x0 or misplaced.
+      for (const stale of post.querySelectorAll("[data-glance-button]")) {
+        if (stale.parentElement !== parts.scope) {
+          stale.remove();
+        }
+      }
+      const existing = parts.scope.querySelector(":scope > [data-glance-button]");
+      if (existing) {
+        // A button injected before the host upgraded keeps rendering
+        // 0x0 afterwards; re-point its slot rather than skip.
+        if (parts.slot) {
+          if (existing.getAttribute("slot") !== parts.slot) {
+            existing.setAttribute("slot", parts.slot);
+          }
+        } else if (existing.hasAttribute("slot")) {
+          existing.removeAttribute("slot");
+        }
+        continue;
+      }
+      this.#inject(post, doc, parts);
+
     }
   }
 
-  #inject(post, doc, anchor) {
-    const parent = anchor.parentElement;
+  #observeRoot(win, root) {
+    if (this.#observedRoots.has(root)) {
+      return;
+    }
+    this.#observedRoots.add(root);
+    const doc = this.document;
+    new win.MutationObserver(() => {
+      win.clearTimeout(this.#scanTimer);
+      this.#scanTimer = win.setTimeout(() => this.#scan(doc), 200);
+    }).observe(root, { childList: true, subtree: true });
+  }
+
+  #inject(post, doc, { before, template, slot }) {
+    const parent = before.parentElement;
     if (!parent) {
       return;
     }
 
-    // Clone the anchor so we inherit the exact rpl-cab styling.
-    const btn = anchor.cloneNode(true);
+    // Clone the repost button so we inherit the exact rpl-cab styling.
+    const btn = template.cloneNode(true);
     for (const attr of [
       "id",
       "name",
@@ -86,7 +164,11 @@ export class GlanceButtonChild extends JSWindowActorChild {
       "slot",
       "aria-expanded",
       "aria-haspopup",
+      "aria-pressed",
       "actioned",
+      "upvote",
+      "downvote",
+      "data-action-bar-action",
       "data-post-click-location",
       "data-post-click-text",
       "part",
@@ -97,7 +179,12 @@ export class GlanceButtonChild extends JSWindowActorChild {
     btn.setAttribute("aria-label", "Open in Glance");
     btn.setAttribute("title", "Open in Glance");
     btn.dataset.glanceButton = "1";
+    if (slot) {
+      btn.setAttribute("slot", slot);
+    }
     btn.innerHTML = EYE_SVG;
+    // The row region is a centered flex line; keep Reddit's 2xs gap.
+    btn.style.marginInlineEnd = "4px";
 
     btn.addEventListener(
       "click",
@@ -121,7 +208,7 @@ export class GlanceButtonChild extends JSWindowActorChild {
       true
     );
 
-    parent.insertBefore(btn, anchor);
+    parent.insertBefore(btn, before);
   }
 
   #postUrl(post, doc) {
