@@ -77,4 +77,6 @@ gZenGlanceManager.openGlance({
 });
 ```
 
-That is the same call as Zen's **Open Link in Glance** context menu item. `triggeringPrincipal` is required by current Zen; older builds ignore it. The rectangle is in content coordinates, which is the space Glance uses for its open animation.
+## License
+
+[MPL-2.0](LICENSE) — modifications to this mod's files must stay under the same license; files you add alongside it can be licensed however you like.
