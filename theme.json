@@ -12,6 +12,7 @@
     }
   },
   "tags": ["zen", "glance", "reddit"],
+  "homepage": "https://github.com/rteobaldo/reddit-glance",
   "fork": ["zen"],
   "createdAt": "2026-11-15",
   "updatedAt": "2026-11-20",
