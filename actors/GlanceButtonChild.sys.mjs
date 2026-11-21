@@ -22,41 +22,54 @@ const EYE_SVG =
   '</span></span>';
 
 /**
- * Find where the button goes and which element must be its direct parent
- * (the repost button's presence doubles as the row's existence marker). A
- * button found elsewhere in the post is a stale remnant of an earlier
+ * Find where the button goes and which element must be its direct parent.
+ * A button found elsewhere in the post is a stale remnant of an earlier
  * anchor and gets removed before re-injection.
  *
- * @returns {{before: Element, template: Element, scope: Element,
- *            slot: string|null}|null}
+ * @returns {{before: Element, scope: Element, slot: string|null}|null}
  */
 function findRowParts(post) {
-  const template = post.querySelector(
-    'button[data-post-click-location="repost-button"]'
-  );
-  if (!template) {
-    return null;
-  }
-  // The row renders inside this light-DOM div, slotted through the post's
-  // root into rpl-action-bar's row region, right of the vote pill.
-  const div = post.querySelector('div[slot="overflow-menu-bar"]');
+  // The row renders inside this div, slotted through the post's root into
+  // rpl-action-bar's row region, right of the vote pill. Card view keeps
+  // the div inside the post's own (open) shadow root; compact view keeps
+  // it in the light DOM. Check both.
+  const root = post.shadowRoot;
+  const div =
+    post.querySelector('div[slot="overflow-menu-bar"]') ||
+    (root && root.querySelector('div[slot="overflow-menu-bar"]'));
   const first = div?.firstElementChild;
   if (div && first) {
     // The row host is block-level; without this the pill renders on its
     // own line above the row. One centered flex line lays them out flat.
     div.style.display = "flex";
     div.style.alignItems = "center";
-    return { before: first, template, scope: div, slot: null };
+    return { before: first, scope: div, slot: null };
+  }
+  // Card view (logged out) builds the row directly inside rpl-action-bar's
+  // light DOM, in the post's shadow root: the vote pill is the first child
+  // of div[data-testid="action-row"]. Anchor immediately right of it.
+  const cardRow = root?.querySelector(
+    'rpl-action-bar div[data-testid="action-row"]'
+  );
+  const afterVotes = cardRow?.firstElementChild?.nextElementSibling;
+  if (cardRow && afterVotes) {
+    return { before: afterVotes, scope: cardRow, slot: null };
   }
   const host = post.querySelector("unpacking-overflow-menu");
   const loader = host?.querySelector(":scope > faceplate-loader");
-  const before = loader || template;
-  const scope = host || before.parentElement || post;
-  // Inside the upgraded row host only slotted children render.
-  const slot = loader && host?.shadowRoot?.querySelector('slot[name="whitespace"]')
-    ? "whitespace"
-    : null;
-  return { before, template, scope, slot };
+  if (loader && host?.shadowRoot?.querySelector('slot[name="whitespace"]')) {
+    // Inside the upgraded row host only slotted children render;
+    // "whitespace" is its leftmost slot, next to the vote pill.
+    return { before: loader, scope: host, slot: "whitespace" };
+  }
+  const repost = post.querySelector(
+    'button[data-post-click-location="repost-button"]'
+  );
+  if (repost) {
+    // Degraded SSR: the row host has not rendered yet.
+    return { before: repost, scope: repost.parentElement || post, slot: null };
+  }
+  return null;
 }
 
 export class GlanceButtonChild extends JSWindowActorChild {
@@ -102,12 +115,21 @@ export class GlanceButtonChild extends JSWindowActorChild {
     doc.addEventListener(
       "click",
       (event) => {
-        const btn = event.target?.closest?.("[data-glance-button]");
+        // The button may live inside the post's shadow root (card view):
+        // event.target is retargeted to the host at the boundary, so match
+        // against the composed path, then walk out via the shadow host.
+        const path = event.composedPath?.() ?? [];
+        const btn = path.find((node) => node?.closest?.("[data-glance-button]"))
+          ?.closest("[data-glance-button]");
         if (!btn) {
           return;
         }
-        const post = btn.closest("shreddit-post");
-        if (!post) {
+        // No instanceof: page nodes live in another compartment, so
+        // instanceof checks against this module's globals are always
+        // false. A ShadowRoot is identified by its host property instead.
+        const post =
+          btn.closest("shreddit-post") ?? btn.getRootNode?.()?.host ?? null;
+        if (!post?.matches?.("shreddit-post")) {
           return;
         }
         event.preventDefault();
@@ -147,9 +169,14 @@ export class GlanceButtonChild extends JSWindowActorChild {
       }
       // Remove stale buttons from earlier anchors (before hydration
       // finished, or from re-renders); they render 0x0 or misplaced.
-      for (const stale of post.querySelectorAll("[data-glance-button]")) {
-        if (stale.parentElement !== parts.scope) {
-          stale.remove();
+      for (const staleRoot of [post, post.shadowRoot]) {
+        if (!staleRoot) {
+          continue;
+        }
+        for (const stale of staleRoot.querySelectorAll("[data-glance-button]")) {
+          if (stale.parentElement !== parts.scope) {
+            stale.remove();
+          }
         }
       }
       const existing = parts.scope.querySelector(":scope > [data-glance-button]");
