@@ -1,12 +1,12 @@
 {
   "id": "glance-button",
-  "name": "Glance Button",
+  "name": "Reddit Glance Button",
   "description": "Adds an Open in Glance button as the first action in Reddit post rows. No modifier key.",
   "author": "rteobaldo",
   "version": "1.3.2",
   "scripts": {
     "glance-button.uc.js": {
-      "name": "Glance Button",
+      "name": "Reddit Glance Button",
       "description": "Registers the actor that adds the Reddit Glance button",
       "include": ["chrome://browser/content/browser.xhtml*"]
     }

@@ -1,4 +1,4 @@
-// Glance Button
+// Reddit Glance Button
 // A Sine chrome script (browser.xhtml only). Its only job is to register the
 // Reddit content actor once per browser session. The actor injects the
 // in-page button and, on click, opens Glance from the parent process via
@@ -36,7 +36,7 @@
       );
       module.ensureGlanceButtonActor(modRoot);
     } catch (error) {
-      console.error("[Glance Button] Could not register the Reddit actor:", error);
+      console.error("[Reddit Glance Button] Could not register the Reddit actor:", error);
     }
   }
 

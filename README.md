@@ -40,7 +40,7 @@ Local and GitHub mods run script only when Sine is allowed to load external Java
 
 1. Open **Settings → Sine**.
 2. Paste this repository's GitHub URL into the field for adding your own mod. A subdirectory install also works: `owner/repo/tree/branch` if `theme.json` is not at the repo root.
-3. Add it, enable **Glance Button**, and restart if Sine asks.
+3. Add it, enable **Reddit Glance Button**, and restart if Sine asks.
 
 Sine can update the mod only after `homepage` in `theme.json` is the GitHub URL above. Set that before you publish.
 
@@ -52,7 +52,7 @@ Sine can update the mod only after `homepage` in `theme.json` is the GitHub URL 
 ```json
 "glance-button": {
   "id": "glance-button",
-  "name": "Glance Button",
+  "name": "Reddit Glance Button",
   "description": "Adds an Open in Glance button as the first action in Reddit post rows. No modifier key.",
   "author": "rteobaldo",
   "version": "1.3.2",

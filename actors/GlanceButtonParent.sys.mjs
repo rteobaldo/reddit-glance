@@ -52,7 +52,7 @@ export function ensureGlanceButtonActor(modRoot) {
     if (/already registered|already exists/i.test(message)) {
       actorRegistered = true;
     } else {
-      console.warn("[Glance Button] Could not register the Reddit actor:", error);
+      console.warn("[Reddit Glance Button] Could not register the Reddit actor:", error);
     }
   }
 
@@ -91,7 +91,7 @@ export class GlanceButtonParent extends JSWindowActorParent {
 
     const manager = win.gZenGlanceManager;
     if (!manager || typeof manager.openGlance !== "function") {
-      console.warn("[Glance Button] gZenGlanceManager.openGlance is not available.");
+      console.warn("[Reddit Glance Button] gZenGlanceManager.openGlance is not available.");
       return;
     }
 
