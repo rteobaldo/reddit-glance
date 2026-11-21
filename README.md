@@ -1,4 +1,4 @@
-# Glance Button
+# Reddit Glance Button
 
 A [Sine](https://github.com/CosmoCreeper/Sine) mod for Zen Browser. On Reddit, it adds an **Open in Glance** button as the first action in each post's action row — before Expand in compact view and before the vote pill in card view. One click opens the post in Glance. No Alt, Ctrl, or Shift.
 
