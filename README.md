@@ -1,8 +1,8 @@
 # Glance Button
 
-A [Sine](https://github.com/CosmoCreeper/Sine) mod for Zen Browser. On Reddit, it adds an **Open in Glance** button to each post's action row — immediately to the right of the upvote/downvote vote pill. One click opens the post in Glance. No Alt, Ctrl, or Shift.
+A [Sine](https://github.com/CosmoCreeper/Sine) mod for Zen Browser. On Reddit, it adds an **Open in Glance** button as the first action in each post's action row — before Expand in compact view and before the vote pill in card view. One click opens the post in Glance. No Alt, Ctrl, or Shift.
 
-The button is built with the expand chevron's `rpl-cab` pill classes in the darker `button-secondary` variant, so it matches the vote control's background and hover in both light and dark themes. Reddit renders the vote pill inside a closed shadow root the mod cannot enter, so the button rides the light-DOM row container that Reddit slots in right after it — the closest reachable spot, level with the pill. Clicking opens the post's permalink; the Glance open animation starts from the button.
+The button is built with the expand chevron's `rpl-cab` pill classes in the darker `button-secondary` variant, matching the other post actions in both light and dark themes. Card and compact views expose the row through the post's open shadow root, so the button can sit before every action instead of being limited to Reddit's overflow slot. Clicking opens the post's permalink; the Glance open animation starts from the button.
 
 It does nothing if Glance is disabled in Zen settings, or if a Glance is already open (Zen's own guard).
 
@@ -33,9 +33,9 @@ Sine can update the mod only after `homepage` in `theme.json` is the GitHub URL 
 "glance-button": {
   "id": "glance-button",
   "name": "Glance Button",
-  "description": "Adds an Open in Glance button to Reddit post action rows, immediately right of the vote pill. No modifier key.",
+  "description": "Adds an Open in Glance button as the first action in Reddit post rows. No modifier key.",
   "author": "rteobaldo",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "createdAt": "2026-11-15",
   "updatedAt": "2026-11-20",
   "tags": ["zen", "glance", "reddit"],
@@ -67,7 +67,7 @@ Turning the mod off in Sine does not remove the buttons until Zen restarts. That
 
 ## How Glance is triggered
 
-The child actor runs in the page process. For each post it locates the light-DOM `div[slot="overflow-menu-bar"]` — the container Reddit slots into the action-bar region, right of the vote pill — makes it a centered flex line, and inserts the button as its first child. On click it sends `GlanceButton:Open` with the post URL and the button's rectangle. The parent actor validates the sender (Reddit only) and the URL (`http`/`https`), then calls:
+The child actor runs in the page process. For each post it finds the action row exposed through the post's open shadow root and inserts the button before the row's first child. In compact view that puts it before Expand; in card view it puts it before the vote pill. Older or partially hydrated layouts use the overflow-menu slot, whitespace slot, or repost button as fallbacks. A document-level capture listener matches clicks through `composedPath()`, so the same handler works in light DOM and open shadow roots. It sends `GlanceButton:Open` with the post URL and the button's rectangle. The parent actor validates the sender (Reddit only) and the URL (`http`/`https`), then calls:
 
 ```js
 gZenGlanceManager.openGlance({

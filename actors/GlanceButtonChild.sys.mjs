@@ -1,18 +1,17 @@
 /**
  * Content side of the Reddit Glance button.
  *
- * Injects one button per post into the action row, immediately to the right
- * of the vote pill. Clicking it asks the parent actor to open the post
- * permalink in Glance.
+ * Injects one button per post as the first action in the post's action
+ * row, before Expand (compact view) or the vote pill (card view). Clicking
+ * it asks the parent actor to open the post permalink in Glance.
  *
- * Current Reddit renders the row inside nested shadow roots: the vote pill
- * lives in a closed root on `rpl-action-bar` (unreachable from page JS),
- * and the row proper is slotted into the bar's row region through the
- * light-DOM `div[slot="overflow-menu-bar"]` on the post. The button is
- * inserted as that div's first child — next to the vote pill — and
- * mirrors the expand chevron's rpl-cab pill classes in the darker
- * button-secondary variant, matching the vote pill. Fallbacks for degraded
- * SSR: the row host's "whitespace" slot, then before the repost button.
+ * Reddit renders the row inside nested shadow roots. Card and compact
+ * views expose an anchorable light-DOM row through the post's open shadow
+ * root. The button is inserted as that row's first child and mirrors the
+ * expand chevron's rpl-cab pill classes in the darker button-secondary
+ * variant, matching the vote pill. Fallbacks for degraded SSR: the
+ * overflow-menu slot, the row host's "whitespace" slot, then before the
+ * repost button.
  */
 
 const EYE_SVG =
@@ -29,31 +28,44 @@ const EYE_SVG =
  * @returns {{before: Element, scope: Element, slot: string|null}|null}
  */
 function findRowParts(post) {
-  // The row renders inside this div, slotted through the post's root into
-  // rpl-action-bar's row region, right of the vote pill. Card view keeps
-  // the div inside the post's own (open) shadow root; compact view keeps
-  // it in the light DOM. Check both.
   const root = post.shadowRoot;
+  // Card view (logged out) builds the row directly inside rpl-action-bar's
+  // light DOM, in the post's shadow root: div[data-testid="action-row"]
+  // with the vote pill as its first child. Anchoring there puts the
+  // button at the row's far left.
+  const row = root?.querySelector(
+    'rpl-action-bar div[data-testid="action-row"]'
+  );
+  const rowFirst = row?.firstElementChild;
+  if (row && rowFirst) {
+    return { before: rowFirst, scope: row, slot: null };
+  }
+  // Compact view exposes the whole action row as rpl-action-bar's light
+  // DOM inside the post's open shadow root. Its Expand button identifies
+  // the row; insert before the row's first child (including slots), so the
+  // button precedes Expand, votes, and every slotted action.
+  const expand = root?.querySelector(
+    "rpl-action-bar button.toggle__expando-button"
+  );
+  const compactRow = expand?.parentElement;
+  const compactFirst = compactRow?.firstElementChild;
+  if (compactRow && compactFirst) {
+    return { before: compactFirst, scope: compactRow, slot: null };
+  }
+  // Fall back to the standalone overflow row when the full row has not
+  // hydrated. The div renders in rpl-action-bar's overflow slot. Compact
+  // view keeps the div in the light DOM; card view keeps it in the post's
+  // own shadow root.
   const div =
     post.querySelector('div[slot="overflow-menu-bar"]') ||
     (root && root.querySelector('div[slot="overflow-menu-bar"]'));
-  const first = div?.firstElementChild;
-  if (div && first) {
+  const divFirst = div?.firstElementChild;
+  if (div && divFirst) {
     // The row host is block-level; without this the pill renders on its
     // own line above the row. One centered flex line lays them out flat.
     div.style.display = "flex";
     div.style.alignItems = "center";
-    return { before: first, scope: div, slot: null };
-  }
-  // Card view (logged out) builds the row directly inside rpl-action-bar's
-  // light DOM, in the post's shadow root: the vote pill is the first child
-  // of div[data-testid="action-row"]. Anchor immediately right of it.
-  const cardRow = root?.querySelector(
-    'rpl-action-bar div[data-testid="action-row"]'
-  );
-  const afterVotes = cardRow?.firstElementChild?.nextElementSibling;
-  if (cardRow && afterVotes) {
-    return { before: afterVotes, scope: cardRow, slot: null };
+    return { before: divFirst, scope: div, slot: null };
   }
   const host = post.querySelector("unpacking-overflow-menu");
   const loader = host?.querySelector(":scope > faceplate-loader");
