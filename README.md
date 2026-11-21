@@ -6,6 +6,26 @@ The button is built with the expand chevron's `rpl-cab` pill classes in the dark
 
 It does nothing if Glance is disabled in Zen settings, or if a Glance is already open (Zen's own guard).
 
+## Screenshots
+
+### First action in compact view
+
+The eye precedes Expand, votes, comments, and every other action.
+
+![Compact action row with the Glance eye before Expand and votes](assets/glance-button-row.webp)
+
+### Light and dark themes
+
+![Compact Reddit feed with Glance buttons in light theme](assets/glance-button-light.webp)
+
+![Compact Reddit feed with Glance buttons in dark theme](assets/glance-button-dark.webp)
+
+### Opened in Glance
+
+Clicking the eye opens that post's permalink in Zen's Glance panel.
+
+![A Reddit post opened in Zen Glance](assets/glance-button-open.webp)
+
 ## Scope
 
 - Works on the current Reddit layout (`shreddit-post`), on feed, subreddit, and comment pages, including posts loaded by infinite scroll and client-side navigation.
